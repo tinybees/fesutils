@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# coding=utf-8
+
+"""
+@author: guoyanfeng
+@software: PyCharm
+@time: 2020/3/2 下午6:43
+"""
+
+import atexit
+from typing import Callable, NoReturn
+
+import aelog
+
+try:
+    import redis
+    from redis.exceptions import RedisError
+except ImportError as ex:
+    raise ImportError(f"please pip install redis>=3.0.0 {ex}")
+
+try:
+    from flask import Flask
+except ImportError as ex:
+    raise ImportError(f"please pip install Flask {ex}")
+
+from ._wraputils import ignore_error
+
+__all__ = ("apscheduler_warkup_job", "apscheduler_start")
+
+
+# noinspection PyProtectedMember
+def apscheduler_warkup_job(scheduler):
+    """
+    唤醒job
+    Args:
+
+    Returns:
+
+    """
+    scheduler._scheduler.wakeup()
+
+
+# noinspection PyProtectedMember
+def apscheduler_start(app_: Flask, scheduler, is_warkup: bool = True, warkup_func: Callable = None,
+                      warkup_seconds: int = 3600) -> NoReturn:
+    """
+    apscheduler的启动方法，利用redis解决多进程多实例的问题
+
+    warkup_func可以包装apscheduler_warkup_job即可
+    def warkup_func():
+        apscheduler_warkup_job(scheduler)  # 这里的scheduler就是启动后的apscheduler全局实例
+    Args:
+        app_: app应用实例
+        scheduler: apscheduler的调度实例
+        is_warkup: 是否定期发现job，用于非运行scheduler进程添加的job
+        warkup_func: 唤醒的job函数，可以包装apscheduler_warkup_job
+        warkup_seconds: 定期唤醒的时间间隔
+    Returns:
+
+    """
+    try:
+        from flask_apscheduler import APScheduler
+        if not isinstance(scheduler, APScheduler):
+            raise ValueError("scheduler类型错误")
+    except ImportError as e:
+        raise ImportError(f"please install flask_apscheduler {e}")
+
+    rdb = None
+    try:
+        rdb = redis.StrictRedis(
+            host=app_.config["ECLIENTS_REDIS_HOST"], port=app_.config["ECLIENTS_REDIS_PORT"],
+            db=2, password=app_.config["ECLIENTS_REDIS_PASSWD"], decode_responses=True)
+    except RedisError as e:
+        aelog.exception(e)
+    else:
+        with rdb.lock("apscheduler_lock"):
+            if rdb.get("apscheduler") is None:
+                rdb.set("apscheduler", "apscheduler")
+                scheduler.start()
+                if is_warkup and callable(warkup_func):
+                    scheduler.add_job("warkup", warkup_func, trigger="interval", seconds=warkup_seconds,
+                                      replace_existing=True)
+            else:
+                scheduler._scheduler.state = 2
+    finally:
+        if rdb:
+            rdb.connection_pool.disconnect()
+
+    @atexit.register
+    def remove_apscheduler():
+        """
+        移除redis中保存的标记
+        Args:
+
+        Returns:
+
+        """
+        rdb_ = None
+        try:
+            rdb_ = redis.StrictRedis(
+                host=app_.config["ECLIENTS_REDIS_HOST"], port=app_.config["ECLIENTS_REDIS_PORT"],
+                db=2, password=app_.config["ECLIENTS_REDIS_PASSWD"], decode_responses=True)
+        except RedisError as ex:
+            aelog.exception(ex)
+        else:
+            with ignore_error():
+                rdb_.delete("apscheduler")
+        finally:
+            if rdb_:
+                rdb_.connection_pool.disconnect()

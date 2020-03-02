@@ -1,0 +1,2 @@
+aelog>=1.0.3
+marshmallow>=3.0.0rc3
