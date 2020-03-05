@@ -17,10 +17,15 @@ from ._schemautils import *
 
 __all__ = (
     "ObjectId", "objectid",
+
     "Singleton", "Cached",
+
     "gen_ident", "camel2under", "under2camel", "number",
-    "ignore_error", "wrap_async_func", "singleton",
+
+    "ignore_error", "wrap_async_func", "singleton", "get_content_md5", "execute_shell", "async_execute_shell",
+
     "pool", "thread_pool", "pool_submit",
+
     "schema_validated", "schema_validate",
 )
 
