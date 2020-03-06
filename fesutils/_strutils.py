@@ -6,13 +6,14 @@
 @software: PyCharm
 @time: 2020/3/2 下午6:36
 """
-
+import hashlib
 import re
 import secrets
 import string
+import uuid
 from typing import Union
 
-__all__ = ("gen_ident", "camel2under", "under2camel", "number")
+__all__ = ("gen_ident", "gen_unique_ident", "camel2under", "under2camel", "number", "str2md5")
 
 _camel2under_re = re.compile('((?<=[a-z0-9])[A-Z]|(?!^)[A-Z](?=[a-z]))')
 
@@ -29,6 +30,18 @@ def gen_ident(ident_len: int = 8):
     alphabet = f"{string.ascii_lowercase}{string.digits}"
     ident = ''.join(secrets.choice(alphabet) for _ in range(ident_len))
     return f"{secrets.choice(string.ascii_lowercase)}{ident}"
+
+
+def gen_unique_ident():
+    """
+    获取以字母开头的唯一字符串
+    Args:
+
+    Returns:
+
+    """
+
+    return f"{secrets.choice(string.ascii_lowercase)}{uuid.uuid4().hex}"
 
 
 def camel2under(camel_string):
@@ -74,3 +87,16 @@ def number(str_value: str, default: int = 0) -> Union[int, float]:
     else:
         print(f"{str_value}的值非Number类型，转换失败，将按照{default}处理")
         return default
+
+
+def str2md5(content: str):
+    """
+    获取内容的MD5值
+    Args:
+        content: str
+    Returns:
+
+    """
+    h = hashlib.md5()
+    h.update(content.encode())
+    return h.hexdigest()

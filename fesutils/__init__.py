@@ -8,25 +8,28 @@
 """
 
 from ._oidutils import *
-from ._enumutils import *
+from .cacheutils import *
 from ._strutils import *
 from ._wraputils import *
 from ._poolutils import *
 from ._schemautils import *
+from ._cmdutils import *
 
 
 __all__ = (
     "ObjectId", "objectid",
 
-    "Singleton", "Cached",
+    "LRI", "LRU", "Singleton", "Cached", "UserConfig", "LocalCache", "g", "Config",
 
-    "gen_ident", "camel2under", "under2camel", "number",
+    "gen_ident", "gen_unique_ident", "camel2under", "under2camel", "number", "str2md5",
 
-    "ignore_error", "wrap_async_func", "singleton", "get_content_md5", "execute_shell", "async_execute_shell",
+    "singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs",
 
     "pool", "thread_pool", "pool_submit",
 
-    "schema_validated", "schema_validate",
+    "schema_validated", "schema_validate", "schema2swagger",
+
+    "execute_shell", "async_execute_shell",
 )
 
 __version__ = "1.0.0b1"

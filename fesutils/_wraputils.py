@@ -10,17 +10,15 @@
 """
 
 import asyncio
-import hashlib
-import subprocess
+import inspect
+from collections import MutableMapping, Sequence
 from contextlib import contextmanager
 from functools import wraps
 
-import aelog
-
 from ._poolutils import pool
-from .err import CommandArgsError, Error, FuncArgsError
+from .err import Error, FuncArgsError
 
-__all__ = ("ignore_error", "wrap_async_func", "singleton", "get_content_md5", "execute_shell", "async_execute_shell")
+__all__ = ("singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs")
 
 
 def singleton(cls):
@@ -79,49 +77,32 @@ async def wrap_async_func(func, *args, **kwargs):
         return result
 
 
-def get_content_md5(content: str):
+async def wrap_async_funcs(funcs: list):
     """
-    获取内容的MD5值
+    批量包装同步方法为异步，批量执行
     Args:
-        content: str
+        funcs: 批量传入的参数列表,eg: [{"func":xx, "args":(), "kwargs":{}}, {"func":xx, "args":(), "kwargs":{}}]
     Returns:
-
+        返回执行后的结果，顺序和传入的顺序一致
     """
-    h = hashlib.md5()
-    h.update(content.encode())
-    return h.hexdigest()
+    tasks = []
+    for func in funcs:
+        func = func.get("func")
+        if not (inspect.isfunction(func) or inspect.ismethod(func)):
+            raise FuncArgsError("Function type error, error: func={}".format(func))
 
+        args = func.get("args")
+        if args and not isinstance(args, Sequence):
+            raise FuncArgsError("Args is not sequence type, func={}, args={}".format(func, args))
+        else:
+            args = ()
 
-def execute_shell(name, cmd):
-    """
-    excute shell
-    Args:
-        name: 执行的命令名称
-        cmd: 执行命令的实际内容
-    Returns:
+        kwargs = func.get("kwargs")
+        if kwargs and not isinstance(kwargs, MutableMapping):
+            raise FuncArgsError("Kwargs is not MutableMapping type, func={}, args={}".format(func, args))
+        else:
+            kwargs = {}
 
-    """
-    try:
-        rs = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        aelog.exception("name={},code={}, msg={}".format(name, e.returncode, str(e.output)))
-        raise CommandArgsError(f"{name} error, {str(e.output)}")
-    else:
-        return rs.decode(encoding="utf8")
-
-
-async def async_execute_shell(cmd):
-    """
-    async excute shell
-    Args:
-        cmd: 要执行的命令字符串
-    Returns:
-
-    """
-    process = await asyncio.create_subprocess_shell(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    success_msg, error_msg = await process.stdout.read(), await process.stderr.read()
-    returncode = await process.wait()
-    if returncode == 0:
-        return success_msg.decode()
-    else:
-        raise CommandArgsError(error_msg.decode())
+        tasks.append(asyncio.ensure_future(wrap_async_func(func, *args, **kwargs)))
+    dones, _ = await asyncio.wait(tasks)
+    return [task.result() for task in dones]
