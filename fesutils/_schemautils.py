@@ -10,7 +10,7 @@ schema校验，需要安装flask或者sanic
 """
 from collections import MutableMapping, MutableSequence
 from functools import partial, wraps
-from typing import Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import aelog
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
@@ -42,7 +42,7 @@ def _verify_message(src_message: Dict, message: Union[List, Dict]):
 
 
 def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_extends: bool = True,
-                     excluded: Union[Tuple, List] = tuple(), message: Dict = None, is_async: bool = True) -> Dict:
+                     excluded: Union[Tuple, List] = tuple(), message: Dict = None, is_async: bool = True) -> Callable:
     """
     校验post的json格式和类型是否正确
     Args:
