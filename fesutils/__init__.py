@@ -14,6 +14,7 @@ from ._wraputils import *
 from ._poolutils import *
 from ._schemautils import *
 from ._cmdutils import *
+from ._timeparse import *
 
 
 __all__ = (
@@ -30,6 +31,8 @@ __all__ = (
     "schema_validated", "schema_validate", "schema2swagger",
 
     "execute_shell", "async_execute_shell",
+
+    "gmt2time", "ymd2time", "time2gmt", "time2ymd",
 )
 
 __version__ = "1.0.0b1"
