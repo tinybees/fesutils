@@ -32,7 +32,7 @@ __all__ = (
 
     "execute_shell", "async_execute_shell",
 
-    "gmt2time", "ymd2time", "time2gmt", "time2ymd",
+    "gmt2time", "ymd2time", "time2gmt", "time2ymd", "iso2time", "time2iso", "stamp2time", "time2stamp",
 )
 
 __version__ = "1.0.0b1"
