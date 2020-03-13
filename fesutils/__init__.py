@@ -28,7 +28,7 @@ __all__ = (
 
     "pool", "thread_pool", "pool_submit",
 
-    "schema_validated", "schema_validate", "schema2swagger",
+    "schema_validated", "schema_validate", "schema2swagger", "gen_schema",
 
     "execute_shell", "async_execute_shell",
 

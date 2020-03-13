@@ -8,6 +8,7 @@
 
 schema校验，需要安装flask或者sanic
 """
+import copy
 from collections import MutableMapping, MutableSequence
 from functools import partial, wraps
 from typing import Callable, Dict, List, Tuple, Union
@@ -17,8 +18,9 @@ from marshmallow import EXCLUDE, Schema, ValidationError, fields
 
 from fesutils._err_msg import schema_msg
 from fesutils.err import FuncArgsError, HttpError
+from ._strutils import under2camel
 
-__all__ = ("schema_validated", "schema_validate", "schema2swagger")
+__all__ = ("schema_validated", "schema_validate", "schema2swagger", "gen_schema")
 
 
 def _verify_message(src_message: Dict, message: Union[List, Dict]):
@@ -42,7 +44,8 @@ def _verify_message(src_message: Dict, message: Union[List, Dict]):
 
 
 def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_extends: bool = True,
-                     excluded: Union[Tuple, List] = tuple(), message: Dict = None, is_async: bool = True) -> Callable:
+                     excluded: Union[Tuple, List] = tuple(), message: Dict = None,
+                     is_async: bool = True) -> Callable:
     """
     校验post的json格式和类型是否正确
     Args:
@@ -63,7 +66,7 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
         try:
             from flask import g, request
         except ImportError as e:
-            raise ImportError(f"please pip install Sanic {e}")
+            raise ImportError(f"please pip install Flask {e}")
 
     if not issubclass(schema_obj, Schema):
         raise FuncArgsError(message="schema_obj type error!")
@@ -152,7 +155,7 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
     try:
         from sanic_openapi import doc
     except ImportError as e:
-        raise ImportError(f"please pip install Sanic {e}")
+        raise ImportError(f"please pip install sanic-openapi {e}")
 
     schema_swagger_map = {
         fields.Email.__name__: doc.String,
@@ -265,3 +268,59 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
 
     result = iter_schema(cls_schema)
     return doc.JsonBody(result)
+
+
+def gen_schema(schema_cls, class_suffix: str = None, table_suffix: str = None,
+               field_mapping: Dict[str, str] = None, schema_fields: MutableSequence[str] = None):
+    """
+    用于根据现有的schema生成新的schema类
+
+    1.主要用于分表的查询和插入生成新的schema,这时候生成的schema和原有的schema一致,主要是类名和表明不同.
+    2.映射字段主要用来处理同一个字段在不同的库中有不同的名称的情况
+    3.生成新的schema类时的字段多少,如果字段比schema_cls类中的多,则按照schema_cls中的字段为准,
+    如果字段比schema_cls类中的少,则以schema_fields中的为准
+    Args:
+        schema_cls: 要生成分表的schema类
+        class_suffix: 新的schema类名的后缀,生成新的类时需要使用
+        table_suffix: 新的table名的后缀,生成新的表名时需要使用
+        field_mapping: 字段映射,字段别名,如果有字段别名则生成的别名按照映射中的别名来,
+                       如果没有则按照schema_cls中的name来处理
+        schema_fields: 生成新的schema类时的字段多少,如果字段比schema_cls类中的多,则按照schema_cls中的字段为准,
+                如果字段比schema_cls类中的少,则以schema_fields中的为准
+    Returns:
+        新生成的schema类
+    """
+    if not issubclass(schema_cls, Schema):
+        raise ValueError("schema_cls must be Schema type.")
+
+    table_name = f"{getattr(schema_cls, '__tablename__', schema_cls.__name__.rstrip('Schema'))}"
+    if class_suffix:
+        class_name = f"{under2camel(table_name)}{class_suffix.capitalize()}Schema"
+    else:
+        class_name = f"{under2camel(table_name)}Schema"
+    if table_suffix:
+        table_name = f"{table_name}_{table_suffix}"
+
+    if getattr(schema_cls, "_cache_class", None) is None:
+        setattr(schema_cls, "_cache_class", {})
+
+    schema_cls_ = getattr(schema_cls, "_cache_class").get(class_name, None)
+    if schema_cls_ is None:
+        attr_fields = {}
+        field_mapping = {} if not isinstance(field_mapping, MutableMapping) else field_mapping
+        schema_fields = tuple() if not isinstance(
+            schema_fields, MutableSequence) else (*schema_fields, *field_mapping.keys())
+        for attr_name, attr_field in getattr(schema_cls, "_declared_fields", {}).items():
+            if schema_fields and attr_name not in schema_fields:
+                continue
+            attr_field = copy.copy(attr_field)
+            setattr(attr_field, "attribute", field_mapping.get(attr_name))
+            attr_fields[attr_name] = attr_field
+        schema_cls_ = type(class_name, (Schema,), {
+            "__doc__": schema_cls.__doc__,
+            "__tablename__": table_name,
+            "__module__": schema_cls.__module__,
+            **attr_fields})
+        getattr(schema_cls, "_cache_class")[class_name] = schema_cls_
+
+    return schema_cls_
