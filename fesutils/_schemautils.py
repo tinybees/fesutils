@@ -270,8 +270,9 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
     return doc.JsonBody(result)
 
 
-def gen_schema(schema_cls, class_suffix: str = None, table_suffix: str = None,
-               field_mapping: Dict[str, str] = None, schema_fields: MutableSequence[str] = None):
+def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str = None,
+               field_mapping: Dict[str, str] = None,
+               schema_fields: Union[Tuple[str], List[str]] = None):
     """
     用于根据现有的schema生成新的schema类
 
