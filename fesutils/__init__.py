@@ -12,7 +12,7 @@ from .cacheutils import *
 from ._strutils import *
 from ._wraputils import *
 from ._poolutils import *
-from ._schemautils import *
+from .schemautils import *
 from ._cmdutils import *
 from ._timeparse import *
 
@@ -28,7 +28,7 @@ __all__ = (
 
     "pool", "thread_pool", "pool_submit",
 
-    "schema_validated", "schema_validate", "schema2swagger", "gen_schema",
+    "schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema", "fields",
 
     "execute_shell", "async_execute_shell",
 

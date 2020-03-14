@@ -17,13 +17,13 @@ import aelog
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
 
 from fesutils._err_msg import schema_msg
+from fesutils._strutils import under2camel
 from fesutils.err import FuncArgsError, HttpError
-from ._strutils import under2camel
 
-__all__ = ("schema_validated", "schema_validate", "schema2swagger", "gen_schema")
+__all__ = ("schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema")
 
 
-def _verify_message(src_message: Dict, message: Union[List, Dict]):
+def _verify_message(src_message: Dict, message: Union[List, Dict]) -> Dict:
     """
     对用户提供的message进行校验
     Args:
@@ -43,13 +43,58 @@ def _verify_message(src_message: Dict, message: Union[List, Dict]):
     return src_message
 
 
-def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_extends: bool = True,
-                     excluded: Union[Tuple, List] = tuple(), message: Dict = None,
-                     is_async: bool = True) -> Callable:
+def verify_schema(schema_cls, json_data: Union[List[Dict], Dict],
+                  required: Union[Tuple, List] = tuple(),
+                  excluded: Union[Tuple, List] = tuple(),
+                  is_extends: bool = True,
+                  message: Dict = None) -> Union[List[Dict], Dict]:
+    """
+    校验post的json格式和类型是否正确
+
+    主要用于接口内部校验,非装饰器校验
+    Args:
+        schema_cls: 定义的schema对象
+        json_data: json data
+        required: 需要标记require的字段
+        excluded: 排除不需要的字段
+        is_extends: 是否继承schemea本身其他字段的require属性， 默认继承
+        message: 提示消息
+    Returns:
+    """
+
+    schema_obj = schema_cls(unknown=EXCLUDE)
+    if required:
+        for key, val in schema_obj.fields.items():
+            if key in required:  # 反序列化期间，把特别需要的字段标记为required
+                setattr(schema_obj.fields[key], "required", True)
+                setattr(schema_obj.fields[key], "dump_only", False)
+            elif not is_extends:
+                setattr(schema_obj.fields[key], "required", False)
+    try:
+        valid_data = schema_obj.load(json_data, unknown=EXCLUDE)
+        # 把load后不需要的字段过滤掉，主要用于不允许修改的字段load后过滤掉
+        if excluded and isinstance(valid_data, dict):
+            for val in excluded:
+                valid_data.pop(val, None)
+    except ValidationError as err:
+        message = schema_msg if message is None else message
+        aelog.exception('Request body validation error, please check! error={}'.format(err.messages))
+        raise HttpError(400, message=message[201]["msg_zh"], error=err.messages)
+    except Exception as err:
+        message = schema_msg if message is None else message
+        aelog.exception("Request body validation unknow error, please check!. { error={}".format(str(err)))
+        raise HttpError(400, message=message[202]["msg_zh"], error=str(err))
+    else:
+        return valid_data
+
+
+def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_extends: bool = True,
+                     excluded: Union[Tuple, List] = tuple(), is_async: bool = True,
+                     message: Dict = None, ) -> Callable:
     """
     校验post的json格式和类型是否正确
     Args:
-        schema_obj: 定义的schema对象
+        schema_cls: 定义的schema对象
         required: 需要标记require的字段
         excluded: 排除不需要的字段
         is_extends: 是否继承schemea本身其他字段的require属性， 默认继承
@@ -68,7 +113,7 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
         except ImportError as e:
             raise ImportError(f"please pip install Flask {e}")
 
-    if not issubclass(schema_obj, Schema):
+    if not issubclass(schema_cls, Schema):
         raise FuncArgsError(message="schema_obj type error!")
     if not isinstance(required, (tuple, list)):
         raise FuncArgsError(message="required type error!")
@@ -78,33 +123,7 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
     # 此处的功能保证，如果调用了多个校验装饰器，则其中一个更改了，所有的都会更改
     if not getattr(schema_validated, "message", None):
         setattr(schema_validated, "message", _verify_message(schema_msg, message or {}))
-
-    def _verify_schema(request_, schema_message):
-        schema_obj_ = schema_obj(unknown=EXCLUDE)
-        if required:
-            for key, val in schema_obj_.fields.items():
-                if key in required:  # 反序列化期间，把特别需要的字段标记为required
-                    setattr(schema_obj_.fields[key], "required", True)
-                    setattr(schema_obj_.fields[key], "dump_only", False)
-                elif not is_extends:
-                    setattr(schema_obj_.fields[key], "required", False)
-        try:
-            valid_data = schema_obj_.load(request_.json, unknown=EXCLUDE)
-            # 把load后不需要的字段过滤掉，主要用于不允许修改的字段load后过滤掉
-            if excluded:
-                for val in excluded:
-                    valid_data.pop(val, None)
-        except ValidationError as err:
-            # 异常退出
-            aelog.exception('Request body validation error, please check! {} {} error={}'.format(
-                request_.method, request_.path, err.messages))
-            raise HttpError(400, message=schema_message[201]["msg_zh"], error=err.messages)
-        except Exception as err:
-            aelog.exception("Request body validation unknow error, please check!. {} {} error={}".format(
-                request_.method, request_.path, str(err)))
-            raise HttpError(500, message=schema_message[202]["msg_zh"], error=str(err))
-        else:
-            return valid_data
+    schema_message = getattr(schema_validated, "message", None)
 
     def _validated(func):
         """
@@ -116,10 +135,8 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
             """
             校验post的json格式和类型是否正确
             """
-            schema_message = getattr(schema_validated, "message", None)
             request_ = args[0] if isinstance(args[0], Request) else args[1]
-
-            request_["json"] = _verify_schema(request_, schema_message)
+            request_["json"] = verify_schema(schema_cls, request_.json, required, excluded, is_extends, schema_message)
             return await func(*args, **kwargs)
 
         @wraps(func)
@@ -127,9 +144,8 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
             """
             校验post的json格式和类型是否正确
             """
-            schema_message = getattr(schema_validated, "message", None)
 
-            g.json = _verify_schema(request, schema_message)
+            g.json = verify_schema(schema_cls, request.json, required, excluded, is_extends, schema_message)
             return func(*args, **kwargs)
 
         return _async_wrapper if is_async is True else _wrapper
@@ -138,15 +154,15 @@ def schema_validated(schema_obj, required: Union[Tuple, List] = tuple(), is_exte
 
 
 # 用于flask框架中的schema校验
-schema_validate = partial(schema_validated, is_async=False)
+schema_validate: Callable = partial(schema_validated, is_async=False)
 
 
-def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
+def schema2swagger(schema_cls: Schema, excluded: Union[Tuple, List] = tuple(),
                    require_only: Union[Tuple, List] = tuple()):
     """
     转换schema为swagger的dict，这样就减少书写swagger文档的麻烦
     Args:
-        cls_schema: schema class
+        schema_cls: schema class
         excluded: 排除那些字段不需要展示
         require_only: 仅需要展示的字段
     Returns:
@@ -175,19 +191,19 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
     if not isinstance(excluded, (tuple, list)):
         raise FuncArgsError(message="excluded type error!")
 
-    def iter_schema(sub_cls_schema, iter_once=False):
+    def iter_schema(sub_schema_cls, iter_once=False):
         """
         递归处理每个迭代子集
         Args:
-            sub_cls_schema: schema class
+            sub_schema_cls: schema class
             iter_once: 控制是否迭代一次，对于包含自身的嵌套来说是有用的
         Returns:
             返回 dictionary
         """
         swagger_dict = {}
-        if not issubclass(sub_cls_schema, Schema):
-            raise FuncArgsError("cls_schema must be sub clss of Schema.")
-        for key, obj in getattr(sub_cls_schema, "_declared_fields", {}).items():
+        if not issubclass(sub_schema_cls, Schema):
+            raise FuncArgsError("schema_cls must be sub clss of Schema.")
+        for key, obj in getattr(sub_schema_cls, "_declared_fields", {}).items():
             if require_only and key not in require_only:  # require_only 和 excluded互斥
                 continue
             elif key in ("created_time", "updated_time", *excluded):  # 过滤掉时间字段
@@ -205,10 +221,10 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
                 elif obj_name == "Nested":  # 递归处理嵌套schema
                     if getattr(obj, "nested") == "self":  # 处理schema包含自身的情况, 包含自身的情况只递归处理一次
                         if not iter_once:
-                            swagger_dict[key] = iter_schema(sub_cls_schema, True)
+                            swagger_dict[key] = iter_schema(sub_schema_cls, True)
                     else:
-                        sub_cls_schema = getattr(obj, "nested")
-                        swagger_dict[key] = iter_schema(sub_cls_schema)
+                        sub_schema_cls = getattr(obj, "nested")
+                        swagger_dict[key] = iter_schema(sub_schema_cls)
         return swagger_dict
 
     def handle_list(obj, obj_required, verbose_name):
@@ -226,8 +242,8 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
         sub_verbose_name = getattr(sub_obj, "metadata").get("verbose_name", "")
         sub_obj_required = getattr(sub_obj, "required", None)
         if sub_obj_name == "Nested":  # 递归处理嵌套schema,处理list中包含嵌套的schema情况
-            sub_cls_schema = getattr(sub_obj, "nested")  # 暂时没有遇到列表中会嵌套自身的情况，不做处理
-            return doc.List(iter_schema(sub_cls_schema), required=obj_required, description=verbose_name)
+            sub_schema_cls = getattr(sub_obj, "nested")  # 暂时没有遇到列表中会嵌套自身的情况，不做处理
+            return doc.List(iter_schema(sub_schema_cls), required=obj_required, description=verbose_name)
         elif sub_obj_name == "Dict":
             value_obj = handle_dict(sub_obj, sub_obj_required, sub_verbose_name)
             return doc.List(value_obj, required=obj_required, description=verbose_name)
@@ -254,8 +270,8 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
             value_verbose_name = getattr(value_obj, "metadata").get("verbose_name", "")
             key_obj = schema_swagger_map[key_name](key_verbose_name, required=key_required)
             if value_name == "Nested":
-                dict_cls_schema = getattr(value_obj, "nested")
-                value_obj = iter_schema(dict_cls_schema)
+                dict_schema_cls = getattr(value_obj, "nested")
+                value_obj = iter_schema(dict_schema_cls)
             elif value_name == "Dict":
                 value_obj = handle_dict(value_obj, value_required, value_verbose_name)
             elif value_name == "List":
@@ -266,7 +282,7 @@ def schema2swagger(cls_schema: Schema, excluded: Union[Tuple, List] = tuple(),
         else:
             return doc.Dictionary(description=verbose_name, required=obj_required)
 
-    result = iter_schema(cls_schema)
+    result = iter_schema(schema_cls)
     return doc.JsonBody(result)
 
 

@@ -12,5 +12,6 @@
 - 增加包装相关的库,包括单个方法的包装和多个方法的包装
 - 增加schema校验相关的方法适用于flask以及sanic,以及生成swagger方法
 - schema中增加根据schema生成其他schema的功能,用于分表,分库同表等的用途
+- schema中增加更改marshmallow中fields中各个类型的默认错误消息的功能
 - 增加同步异步执行命令的工具类
 - 增加时间解析和格式化的工具类,包括gmt,iso,ymd,timestamp等
