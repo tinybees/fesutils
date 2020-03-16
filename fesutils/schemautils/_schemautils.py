@@ -287,7 +287,7 @@ def schema2swagger(schema_cls: Schema, excluded: Union[Tuple, List] = tuple(),
 
 
 def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str = None,
-               field_mapping: Dict[str, str] = None,
+               table_name: str = None, field_mapping: Dict[str, str] = None,
                schema_fields: Union[Tuple[str], List[str]] = None):
     """
     用于根据现有的schema生成新的schema类
@@ -300,6 +300,7 @@ def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str =
         schema_cls: 要生成分表的schema类
         class_suffix: 新的schema类名的后缀,生成新的类时需要使用
         table_suffix: 新的table名的后缀,生成新的表名时需要使用
+        table_name: 如果指定了table name则使用,否则使用schema_cls的table name
         field_mapping: 字段映射,字段别名,如果有字段别名则生成的别名按照映射中的别名来,
                        如果没有则按照schema_cls中的name来处理
         schema_fields: 生成新的schema类时的字段多少,如果字段比schema_cls类中的多,则按照schema_cls中的字段为准,
@@ -309,8 +310,9 @@ def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str =
     """
     if not issubclass(schema_cls, Schema):
         raise ValueError("schema_cls must be Schema type.")
-
-    table_name = f"{getattr(schema_cls, '__tablename__', schema_cls.__name__.rstrip('Schema'))}"
+    
+    if table_name is None:
+        table_name = f"{getattr(schema_cls, '__tablename__', schema_cls.__name__.rstrip('Schema'))}"
     if class_suffix:
         class_name = f"{under2camel(table_name)}{class_suffix.capitalize()}Schema"
     else:
