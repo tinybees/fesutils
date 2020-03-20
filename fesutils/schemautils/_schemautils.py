@@ -16,9 +16,9 @@ from typing import Callable, Dict, List, Tuple, Union
 import aelog
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
 
-from fesutils._err_msg import schema_msg
-from fesutils._strutils import under2camel
-from fesutils.err import FuncArgsError, HttpError
+from .._err_msg import schema_msg
+from .._strutils import under2camel
+from ..err import FuncArgsError, HttpError
 
 __all__ = ("schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema")
 
@@ -66,8 +66,8 @@ def verify_schema(schema_cls, json_data: Union[List[Dict], Dict],
     if required:
         for key, val in schema_obj.fields.items():
             if key in required:  # 反序列化期间，把特别需要的字段标记为required
-                setattr(schema_obj.fields[key], "required", True)
                 setattr(schema_obj.fields[key], "dump_only", False)
+                schema_obj.load_fields[key] = schema_obj.fields[key]
             elif not is_extends:
                 setattr(schema_obj.fields[key], "required", False)
     try:
@@ -310,7 +310,7 @@ def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str =
     """
     if not issubclass(schema_cls, Schema):
         raise ValueError("schema_cls must be Schema type.")
-    
+
     if table_name is None:
         table_name = f"{getattr(schema_cls, '__tablename__', schema_cls.__name__.rstrip('Schema'))}"
     if class_suffix:

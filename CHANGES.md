@@ -1,5 +1,11 @@
 ## fesutils Changelog
 
+###[1.0.0b2] - 2020-3-20
+
+#### Changed
+- 升级marshmallow的最低版本为3.0.0
+- 由于marshmallow版本升级,更改schema校验功能
+
 ###[1.0.0b1] - 2020-3-2
 
 #### Added
