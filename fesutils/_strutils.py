@@ -27,7 +27,7 @@ def gen_ident(ident_len: int = 8):
 
     """
     alphabet = f"{string.ascii_lowercase}{string.digits}"
-    ident = ''.join(secrets.choice(alphabet) for _ in range(ident_len))
+    ident = ''.join(secrets.choice(alphabet) for _ in range(ident_len - 1))
     return f"{secrets.choice(string.ascii_lowercase)}{ident}"
 
 
