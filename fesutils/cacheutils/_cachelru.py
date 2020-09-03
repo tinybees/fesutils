@@ -25,7 +25,6 @@
 try:
     from threading import RLock
 except ImportError:
-    # noinspection Mypy
     class RLock(object):  # type: ignore
         """Dummy reentrant lock for builds without threads"""
 
