@@ -12,7 +12,7 @@ from ._fields import *
 
 
 __all__ = (
-    "schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema",
+    "sanic_schema_validate", "flask_schema_validate", "verify_schema", "schema2swagger", "gen_schema",
 
     "fields",
 )

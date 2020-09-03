@@ -28,7 +28,7 @@ __all__ = (
 
     "pool", "thread_pool", "pool_submit",
 
-    "schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema", "fields",
+    "sanic_schema_validate", "flask_schema_validate", "verify_schema", "schema2swagger", "gen_schema", "fields",
 
     "execute_shell", "async_execute_shell",
 
