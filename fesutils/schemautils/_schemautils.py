@@ -11,7 +11,7 @@ schema校验，需要安装flask或者sanic
 import copy
 from collections import MutableMapping, MutableSequence
 from functools import partial, wraps
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, List, Tuple, Type, Union
 
 import aelog
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
@@ -106,7 +106,7 @@ def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_exte
         try:
             from sanic.request import Request
         except ImportError as e:
-            raise ImportError(f"please pip install Sanic {e}")
+            raise ImportError(f"please pip install Sanic >= 19.9 {e}")
     else:
         try:
             from flask import g, request
@@ -136,7 +136,7 @@ def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_exte
             校验post的json格式和类型是否正确
             """
             request_ = args[0] if isinstance(args[0], Request) else args[1]
-            request_["json"] = verify_schema(schema_cls, request_.json, required, excluded, is_extends, schema_message)
+            request_.ctx.json = verify_schema(schema_cls, request_.json, required, excluded, is_extends, schema_message)
             return await func(*args, **kwargs)
 
         @wraps(func)
@@ -286,7 +286,7 @@ def schema2swagger(schema_cls: Schema, excluded: Union[Tuple, List] = tuple(),
     return doc.JsonBody(result)
 
 
-def gen_schema(schema_cls: Schema, class_suffix: str = None, table_suffix: str = None,
+def gen_schema(schema_cls: Type[Schema], class_suffix: str = None, table_suffix: str = None,
                table_name: str = None, field_mapping: Dict[str, str] = None,
                schema_fields: Union[Tuple[str], List[str]] = None):
     """

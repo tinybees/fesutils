@@ -1,5 +1,12 @@
 ## fesutils Changelog
 
+###[1.0.0b3] - 2020-9-3
+
+#### Changed
+- 修改部分类型标注
+- 修改schema校验适配最新的sanic框架上下文传值方式
+
+
 ###[1.0.0b2] - 2020-3-20
 
 #### Changed
