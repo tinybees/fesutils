@@ -10,7 +10,7 @@ schema校验，需要安装flask或者sanic
 """
 import copy
 from collections import MutableMapping, MutableSequence
-from functools import partial, wraps
+from functools import wraps
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import aelog
@@ -20,7 +20,7 @@ from .._err_msg import schema_msg
 from .._strutils import under2camel
 from ..err import FuncArgsError, HttpError
 
-__all__ = ("schema_validated", "schema_validate", "verify_schema", "schema2swagger", "gen_schema")
+__all__ = ("sanic_schema_validate", "flask_schema_validate", "verify_schema", "schema2swagger", "gen_schema")
 
 
 def _verify_message(src_message: Dict, message: Union[List, Dict]) -> Dict:
@@ -88,9 +88,9 @@ def verify_schema(schema_cls, json_data: Union[List[Dict], Dict],
         return valid_data
 
 
-def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_extends: bool = True,
-                     excluded: Union[Tuple, List] = tuple(), is_async: bool = True,
-                     message: Dict = None, ) -> Callable:
+def _schema_validated(schema_cls: Type[Schema], required: Union[Tuple, List] = tuple(),
+                      is_extends: bool = True, excluded: Union[Tuple, List] = tuple(),
+                      is_async: bool = True, message: Dict = None) -> Callable:
     """
     校验post的json格式和类型是否正确
     Args:
@@ -121,9 +121,9 @@ def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_exte
         raise FuncArgsError(message="excluded type error!")
 
     # 此处的功能保证，如果调用了多个校验装饰器，则其中一个更改了，所有的都会更改
-    if not getattr(schema_validated, "message", None):
-        setattr(schema_validated, "message", _verify_message(schema_msg, message or {}))
-    schema_message = getattr(schema_validated, "message", None)
+    if not getattr(_schema_validated, "message", None):
+        setattr(_schema_validated, "message", _verify_message(schema_msg, message or {}))
+    schema_message = getattr(_schema_validated, "message", None)
 
     def _validated(func):
         """
@@ -153,8 +153,40 @@ def schema_validated(schema_cls, required: Union[Tuple, List] = tuple(), is_exte
     return _validated
 
 
-# 用于flask框架中的schema校验
-schema_validate: Callable = partial(schema_validated, is_async=False)
+def sanic_schema_validate(schema_cls: Type[Schema], required: Union[Tuple, List] = tuple(),
+                          is_extends: bool = True, excluded: Union[Tuple, List] = tuple(),
+                          message: Dict = None) -> Callable:
+    """
+    校验post的json格式和类型是否正确
+
+    用于sanic框架
+    Args:
+        schema_cls: 定义的schema对象
+        required: 需要标记require的字段
+        excluded: 排除不需要的字段
+        is_extends: 是否继承schemea本身其他字段的require属性， 默认继承
+        message: 提示消息
+    Returns:
+    """
+    return _schema_validated(schema_cls, required, is_extends, excluded, message=message)
+
+
+def flask_schema_validate(schema_cls: Type[Schema], required: Union[Tuple, List] = tuple(),
+                          is_extends: bool = True, excluded: Union[Tuple, List] = tuple(),
+                          message: Dict = None) -> Callable:
+    """
+    校验post的json格式和类型是否正确
+
+    用于flask框架
+    Args:
+        schema_cls: 定义的schema对象
+        required: 需要标记require的字段
+        excluded: 排除不需要的字段
+        is_extends: 是否继承schemea本身其他字段的require属性， 默认继承
+        message: 提示消息
+    Returns:
+    """
+    return _schema_validated(schema_cls, required, is_extends, excluded, is_async=False, message=message)
 
 
 def schema2swagger(schema_cls: Schema, excluded: Union[Tuple, List] = tuple(),
