@@ -10,10 +10,12 @@
 import weakref
 from collections import MutableMapping, UserDict
 from typing import Dict
+from weakref import WeakValueDictionary
 
 __all__ = ("Singleton", "Cached", "UserConfig", "LocalCache", "g", "Config")
 
 
+# noinspection Mypy
 class _Singleton(type):
     """
     singleton for class
@@ -31,6 +33,7 @@ class _Singleton(type):
             return cls.__instance
 
 
+# noinspection Mypy
 class _Cached(type):
     def __init__(cls, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,10 +50,16 @@ class _Cached(type):
 
 
 class Singleton(metaclass=_Singleton):
+    """
+    单例类
+    """
     pass
 
 
 class Cached(metaclass=_Cached):
+    """
+    枚举类
+    """
     pass
 
 
@@ -108,7 +117,7 @@ class _CachedGManager(object):
     缓存全局实例引用
     """
 
-    _cache = weakref.WeakValueDictionary()
+    _cache: WeakValueDictionary = weakref.WeakValueDictionary()
 
     def __new__(cls, *args, **kwargs):
         """

@@ -19,7 +19,8 @@ except ImportError as e:
 try:
     from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader
+    # noinspection Mypy
+    from yaml import Loader  # type: ignore
 
 __all__ = ("analysis_yaml",)
 

@@ -8,7 +8,7 @@
 """
 import atexit
 import os
-from typing import Callable, NoReturn
+from typing import Callable
 
 import aelog
 
@@ -42,7 +42,7 @@ def apscheduler_warkup_job(scheduler):
 
 # noinspection PyProtectedMember
 def apscheduler_start(app_: Flask, scheduler, is_warkup: bool = True, warkup_func: Callable = None,
-                      warkup_seconds: int = 3600) -> NoReturn:
+                      warkup_seconds: int = 3600):
     """
     apscheduler的启动方法，利用redis解决多进程多实例的问题
 
@@ -104,9 +104,9 @@ def apscheduler_start(app_: Flask, scheduler, is_warkup: bool = True, warkup_fun
                 if is_warkup and callable(warkup_func):
                     scheduler.add_job("warkup", warkup_func, trigger="interval", seconds=warkup_seconds,
                                       replace_existing=True)
+                    aelog.info(f"当前进程{os.getpid()}启动定时任务成功,设置redis[2]任务标记[apscheduler],"
+                               f"任务函数为{warkup_func.__name__}.")
                 atexit.register(remove_apscheduler)
-                aelog.info(f"当前进程{os.getpid()}启动定时任务成功,设置redis[2]任务标记[apscheduler],"
-                           f"任务函数为{warkup_func.__name__}.")
             else:
                 scheduler._scheduler.state = 2
                 aelog.info(f"其他进程已经启动了定时任务,当前进程{os.getpid()}不再加载定时任务.")

@@ -75,7 +75,7 @@ def number(str_value: str, default: int = 0) -> Union[int, float]:
     default = default if isinstance(default, (int, float)) else 0
     if isinstance(str_value, str):
         if str_value.isdecimal():
-            number_value = int(str_value)
+            number_value: Union[int, float] = int(str_value)
         elif str_value.replace(".", "").isdecimal():
             number_value = float(str_value)
         else:

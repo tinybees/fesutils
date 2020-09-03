@@ -25,18 +25,19 @@ def time2gmt(dt_val: Union[datetime, int, float, None] = None, delim=' ') -> str
     Returns:
         eg； Thu, 12 Mar 2020 11:21:04 GMT
     """
-    if dt_val is None:
-        dt_val = localtime()
-    elif isinstance(dt_val, datetime):
-        dt_val = dt_val.timetuple()
+    if isinstance(dt_val, datetime):
+        dt_val_ = dt_val.timetuple()
     elif isinstance(dt_val, (int, float)):
-        dt_val = localtime(dt_val)
+        dt_val_ = localtime(dt_val)
+    else:
+        dt_val_ = localtime()
+
     return '%s, %02d%s%s%s%s %02d:%02d:%02d GMT' % (
-        ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')[dt_val.tm_wday],
-        dt_val.tm_mday, delim,
+        ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun')[dt_val_.tm_wday],
+        dt_val_.tm_mday, delim,
         ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep',
-         'Oct', 'Nov', 'Dec')[dt_val.tm_mon - 1],
-        delim, str(dt_val.tm_year), dt_val.tm_hour, dt_val.tm_min, dt_val.tm_sec
+         'Oct', 'Nov', 'Dec')[dt_val_.tm_mon - 1],
+        delim, str(dt_val_.tm_year), dt_val_.tm_hour, dt_val_.tm_min, dt_val_.tm_sec
     )
 
 
@@ -48,15 +49,15 @@ def time2ymd(dt_val: Union[datetime, int, float, None] = None) -> str:
     Returns:
         eg: 2020-03-12 11:21:04
     """
-    if dt_val is None:
-        dt_val = localtime()
-    elif isinstance(dt_val, datetime):
-        dt_val = dt_val.timetuple()
+    if isinstance(dt_val, datetime):
+        dt_val_ = dt_val.timetuple()
     elif isinstance(dt_val, (int, float)):
-        dt_val = localtime(dt_val)
+        dt_val_ = localtime(dt_val)
+    else:
+        dt_val_ = localtime()
 
     return '%s-%02d-%02d %02d:%02d:%02d' % (
-        str(dt_val.tm_year), dt_val.tm_mon, dt_val.tm_mday, dt_val.tm_hour, dt_val.tm_min, dt_val.tm_sec)
+        str(dt_val_.tm_year), dt_val_.tm_mon, dt_val_.tm_mday, dt_val_.tm_hour, dt_val_.tm_min, dt_val_.tm_sec)
 
 
 def time2iso(dt_val: Union[datetime, int, float, None] = None) -> str:
@@ -67,12 +68,13 @@ def time2iso(dt_val: Union[datetime, int, float, None] = None) -> str:
     Returns:
         eg :2020-03-12T11:49:31.392460
     """
-    if dt_val is None:
-        dt_val = datetime.now()
-    elif isinstance(dt_val, (int, float)):
-        dt_val = localtime(dt_val)
-        dt_val = datetime.fromtimestamp(mktime(dt_val))
-    return dt_val.isoformat()
+    if isinstance(dt_val, (int, float)):
+        dt_val__ = localtime(dt_val)
+        dt_val_ = datetime.fromtimestamp(mktime(dt_val__))
+    else:
+        dt_val_ = datetime.now()
+
+    return dt_val_.isoformat()
 
 
 def time2stamp(dt_val: Union[datetime, int, float, None] = None, length=13) -> int:
@@ -84,12 +86,13 @@ def time2stamp(dt_val: Union[datetime, int, float, None] = None, length=13) -> i
     Returns:
         eg :1583985504763
     """
-    if dt_val is None:
-        dt_val = datetime.now()
-    elif isinstance(dt_val, (int, float)):
-        dt_val = localtime(dt_val)
-        dt_val = datetime.fromtimestamp(mktime(dt_val))
-    return int(dt_val.timestamp() * 1000) if length == 13 else int(dt_val.timestamp())
+    if isinstance(dt_val, (int, float)):
+        dt_val__ = localtime(dt_val)
+        dt_val_ = datetime.fromtimestamp(mktime(dt_val__))
+    else:
+        dt_val_ = datetime.now()
+
+    return int(dt_val_.timestamp() * 1000) if length == 13 else int(dt_val_.timestamp())
 
 
 def gmt2time(gmt_val: str) -> datetime:
@@ -139,9 +142,9 @@ def stamp2time(stamp_val: Union[int, float, str]) -> datetime:
     """
 
     left, *right = str(stamp_val).split(".")
-    right = "".join(right)
+    dot_right = "".join(right)
     left_, right_ = left[:10], left[10:]
-    stamp_val = float(f"{left_}.{right_}{right}")
+    stamp_val = float(f"{left_}.{right_}{dot_right}")
     return datetime.fromtimestamp(stamp_val)
 
 

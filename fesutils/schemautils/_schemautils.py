@@ -11,7 +11,7 @@ schema校验，需要安装flask或者sanic
 import copy
 from collections import MutableMapping, MutableSequence
 from functools import partial, wraps
-from typing import Callable, Dict, List, Tuple, Type, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Type, Union
 
 import aelog
 from marshmallow import EXCLUDE, Schema, ValidationError, fields
@@ -82,7 +82,7 @@ def verify_schema(schema_cls, json_data: Union[List[Dict], Dict],
         raise HttpError(400, message=message[201]["msg_zh"], error=err.messages)
     except Exception as err:
         message = schema_msg if message is None else message
-        aelog.exception("Request body validation unknow error, please check!. { error={}".format(str(err)))
+        aelog.exception("Request body validation unknow error, please check!. error={}".format(str(err)))
         raise HttpError(400, message=message[202]["msg_zh"], error=str(err))
     else:
         return valid_data
@@ -288,7 +288,7 @@ def schema2swagger(schema_cls: Schema, excluded: Union[Tuple, List] = tuple(),
 
 def gen_schema(schema_cls: Type[Schema], class_suffix: str = None, table_suffix: str = None,
                table_name: str = None, field_mapping: Dict[str, str] = None,
-               schema_fields: Union[Tuple[str], List[str]] = None):
+               schema_fields: Optional[Sequence] = None):
     """
     用于根据现有的schema生成新的schema类
 
