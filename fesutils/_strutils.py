@@ -63,7 +63,7 @@ def under2camel(under_string):
     return ''.join(w.capitalize() or '_' for w in under_string.split('_'))
 
 
-def number(str_value: str, default: int = 0) -> Union[int, float]:
+def number(str_value: str, default: Union[int, float] = 0) -> Union[int, float]:
     """
     把字符串值转换为int或者float
     Args:
@@ -74,12 +74,20 @@ def number(str_value: str, default: int = 0) -> Union[int, float]:
     """
     default = default if isinstance(default, (int, float)) else 0
     if isinstance(str_value, str):
-        if str_value.isdecimal():
-            number_value: Union[int, float] = int(str_value)
+        number_value: Union[int, float] = default  # 先赋予默认值
+        # 处理有符号的整数和小数
+        if str_value.startswith(("-", "+")):
+            if str_value[1:].isdecimal():
+                number_value = int(str_value)
+            elif str_value[1:].replace(".", "").isdecimal():
+                number_value = float(str_value)
+        # 处理无符号的整数
+        elif str_value.isdecimal():
+            number_value = int(str_value)
+        # 处理无符号的小数
         elif str_value.replace(".", "").isdecimal():
             number_value = float(str_value)
-        else:
-            number_value = default
+
         return number_value
     elif isinstance(str_value, (int, float)):
         return str_value
