@@ -16,7 +16,6 @@ from .schemautils import *
 from ._cmdutils import *
 from ._timeparse import *
 
-
 __all__ = (
     "ObjectId", "objectid",
 
@@ -24,7 +23,7 @@ __all__ = (
 
     "gen_ident", "gen_unique_ident", "camel2under", "under2camel", "number", "str2md5",
 
-    "singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs",
+    "singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs", "async_ignore_error",
 
     "pool", "thread_pool", "pool_submit",
 
