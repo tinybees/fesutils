@@ -15,10 +15,12 @@ from collections import MutableMapping, Sequence
 from contextlib import contextmanager
 from functools import wraps
 
+from aiocontext import async_contextmanager
+
 from ._poolutils import pool
 from .err import Error, FuncArgsError
 
-__all__ = ("singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs")
+__all__ = ("singleton", "ignore_error", "wrap_async_func", "wrap_async_funcs", "async_ignore_error")
 
 
 def singleton(cls):
@@ -43,6 +45,22 @@ def singleton(cls):
 
 @contextmanager
 def ignore_error(error=Exception):
+    """
+    个别情况下会忽略遇到的错误
+    Args:
+
+    Returns:
+
+    """
+    # noinspection PyBroadException
+    try:
+        yield
+    except error:
+        pass
+
+
+@async_contextmanager
+async def async_ignore_error(error=Exception):
     """
     个别情况下会忽略遇到的错误
     Args:
