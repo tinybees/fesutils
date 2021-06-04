@@ -15,6 +15,8 @@ from ._poolutils import *
 from .schemautils import *
 from ._cmdutils import *
 from ._timeparse import *
+from ._containerutils import *
+
 
 __all__ = (
     "ObjectId", "objectid",
@@ -33,7 +35,9 @@ __all__ = (
 
     "gmt2time", "ymd2time", "time2gmt", "time2ymd", "iso2time", "time2iso", "stamp2time", "time2stamp",
 
+    "expand_nested_list", "is_iterable", "chunked", "chunked_iter",
+
     "__version__",
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
