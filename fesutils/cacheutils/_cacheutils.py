@@ -41,12 +41,11 @@ class _Cached(type):
 
     def __call__(cls, *args, **kwargs):
         cached_name = f"{args}{kwargs}"
-        if cached_name in cls.__cache:
-            return cls.__cache[cached_name]
-        else:
-            obj = super().__call__(*args, **kwargs)
-            cls.__cache[cached_name] = obj  # 这里是弱引用不能直接赋值，否则会被垃圾回收期回收
-            return obj
+        cached_obj = cls.__cache.get(cached_name)
+        if cached_obj is None:
+            cached_obj = super().__call__(*args, **kwargs)
+            cls.__cache[cached_name] = cached_obj  # 这里是弱引用不能直接赋值，否则会被垃圾回收期回收
+        return cached_obj
 
 
 class Singleton(metaclass=_Singleton):
