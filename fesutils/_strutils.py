@@ -11,6 +11,7 @@ import re
 import secrets
 import string
 import uuid
+from decimal import Decimal
 from typing import Union
 
 __all__ = ("gen_ident", "gen_unique_ident", "camel2under", "under2camel", "number", "str2md5")
@@ -63,7 +64,7 @@ def under2camel(under_string):
     return ''.join(w.capitalize() or '_' for w in under_string.split('_'))
 
 
-def number(str_value: str, default: Union[int, float] = 0) -> Union[int, float]:
+def number(str_value: str, default: Union[int, float, Decimal] = 0) -> Union[int, float, Decimal]:
     """
     把字符串值转换为int或者float
     Args:
@@ -72,7 +73,7 @@ def number(str_value: str, default: Union[int, float] = 0) -> Union[int, float]:
     Returns:
 
     """
-    default = default if isinstance(default, (int, float)) else 0
+    default = default if isinstance(default, (int, float, Decimal)) else 0
     if isinstance(str_value, str):
         number_value: Union[int, float] = default  # 先赋予默认值
         # 处理有符号的整数和小数
@@ -89,7 +90,7 @@ def number(str_value: str, default: Union[int, float] = 0) -> Union[int, float]:
             number_value = float(str_value)
 
         return number_value
-    elif isinstance(str_value, (int, float)):
+    elif isinstance(str_value, (int, float, Decimal)):
         return str_value
     else:
         return default
