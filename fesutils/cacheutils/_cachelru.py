@@ -38,6 +38,33 @@ PREV, NEXT, KEY, VALUE = range(4)  # names for the link fields
 DEFAULT_MAX_SIZE = 128
 
 
+class Sentinel(object):
+    """
+    Sentinel
+    """
+
+    def __init__(self, name, var_name):
+        self.name = name
+        self.var_name = var_name
+
+    def __repr__(self):
+        if self.var_name:
+            return self.var_name
+        return '%s(%r)' % (self.__class__.__name__, self.name)
+
+    def __reduce__(self):
+        if self.var_name:
+            return self.var_name
+        else:
+            return super().__reduce__()
+
+    @staticmethod
+    def __nonzero__():
+        return False
+
+    __bool__ = __nonzero__
+
+
 def make_sentinel(name='_MISSING', var_name=None):
     """Creates and returns a new **instance** of a new class, suitable for
     usage as a "sentinel", a kind of singleton often used to indicate
@@ -74,33 +101,6 @@ def make_sentinel(name='_MISSING', var_name=None):
 
 _MISSING = make_sentinel(var_name='_MISSING')
 _KWARG_MARK = make_sentinel(var_name='_KWARG_MARK')
-
-
-class Sentinel(object):
-    """
-    Sentinel
-    """
-
-    def __init__(self, name, var_name):
-        self.name = name
-        self.var_name = var_name
-
-    def __repr__(self):
-        if self.var_name:
-            return self.var_name
-        return '%s(%r)' % (self.__class__.__name__, self.name)
-
-    def __reduce__(self):
-        if self.var_name:
-            return self.var_name
-        else:
-            return super().__reduce__()
-
-    @staticmethod
-    def __nonzero__():
-        return False
-
-    __bool__ = __nonzero__
 
 
 # noinspection PyMissingOrEmptyDocstring
