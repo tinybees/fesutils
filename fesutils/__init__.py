@@ -21,7 +21,9 @@ from ._containerutils import *
 __all__ = (
     "ObjectId", "objectid",
 
-    "LRI", "LRU", "Singleton", "Cached", "UserConfig", "LocalCache", "g", "Config",
+    "LRI", "LRU", "cachedmethod", "cached", "make_sentinel", "_MISSING", "_KWARG_MARK",
+
+    "Singleton", "Cached", "UserConfig", "LocalCache", "g", "Config",
 
     "gen_ident", "gen_unique_ident", "camel2under", "under2camel", "number", "str2md5",
 
@@ -40,4 +42,4 @@ __all__ = (
     "__version__",
 )
 
-__version__ = "1.0.3"
+__version__ = "1.1.0"

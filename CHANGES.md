@@ -1,5 +1,11 @@
 ## fesutils Changelog
 
+###[1.1.0] - 2023-09-19
+
+#### Added 
+- 从boltons升级cachelru模块，删除无用的函数类更改部分函数类以适配现有功能
+
+
 ###[1.0.3] - 2023-05-18
 
 #### Changed 

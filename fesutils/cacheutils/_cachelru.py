@@ -9,6 +9,13 @@
   * :class:`LRI` - Least-recently inserted
   * :class:`LRU` - Least-recently used
 
+Both caches are :class:`dict` subtypes, designed to be as
+interchangeable as possible, to facilitate experimentation. A key
+practice with performance enhancement with caching is ensuring that
+the caching strategy is working. If the cache is constantly missing,
+it is just adding more overhead and code complexity. The standard
+statistics are:
+
   * ``hit_count`` - the number of times the queried key has been in
     the cache
   * ``miss_count`` - the number of times a key has been absent and/or
@@ -22,34 +29,81 @@
 由boltons库的cacheutils改造
 """
 
-try:
-    from threading import RLock
-except ImportError:
-    class RLock(object):  # type: ignore
-        """Dummy reentrant lock for builds without threads"""
+from operator import attrgetter
+from threading import RLock
 
-        def __enter__(self):
-            pass
-
-        def __exit__(self, exctype, excinst, exctb):
-            pass
-
-try:
-    # noinspection PyUnresolvedReferences
-    from boltons.typeutils import make_sentinel
-
-    _MISSING = make_sentinel(var_name='_MISSING')
-    _KWARG_MARK = make_sentinel(var_name='_KWARG_MARK')
-except ImportError:
-    _MISSING = object()
-    _KWARG_MARK = object()
-
-__all__ = ("LRI", "LRU")
+__all__ = ("LRI", "LRU", "cachedmethod", "cached", "make_sentinel", "_MISSING", "_KWARG_MARK")
 
 PREV, NEXT, KEY, VALUE = range(4)  # names for the link fields
 DEFAULT_MAX_SIZE = 128
 
 
+def make_sentinel(name='_MISSING', var_name=None):
+    """Creates and returns a new **instance** of a new class, suitable for
+    usage as a "sentinel", a kind of singleton often used to indicate
+    a value is missing when ``None`` is a valid input.
+
+    Args:
+        name (str): Name of the Sentinel
+        var_name (str): Set this name to the name of the variable in
+            its respective module enable pickleability.
+
+    >>> make_sentinel(var_name='_MISSING')
+    _MISSING
+
+    The most common use cases here in boltons are as default values
+    for optional function arguments, partly because of its
+    less-confusing appearance in automatically generated
+    documentation. Sentinels also function well as placeholders in queues
+    and linked lists.
+
+    .. note::
+
+      By design, additional calls to ``make_sentinel`` with the same
+      values will not produce equivalent objects.
+
+      >>> make_sentinel('TEST') == make_sentinel('TEST')
+      False
+      >>> type(make_sentinel('TEST')) == type(make_sentinel('TEST'))
+      False
+
+    """
+
+    return Sentinel(name, var_name)
+
+
+_MISSING = make_sentinel(var_name='_MISSING')
+_KWARG_MARK = make_sentinel(var_name='_KWARG_MARK')
+
+
+class Sentinel(object):
+    """
+    Sentinel
+    """
+
+    def __init__(self, name, var_name):
+        self.name = name
+        self.var_name = var_name
+
+    def __repr__(self):
+        if self.var_name:
+            return self.var_name
+        return '%s(%r)' % (self.__class__.__name__, self.name)
+
+    def __reduce__(self):
+        if self.var_name:
+            return self.var_name
+        else:
+            return super().__reduce__()
+
+    @staticmethod
+    def __nonzero__():
+        return False
+
+    __bool__ = __nonzero__
+
+
+# noinspection PyMissingOrEmptyDocstring
 class LRI(dict):
     """The ``LRI`` implements the basic *Least Recently Inserted* strategy to
     caching. One could also think of this as a ``SizeLimitedDefaultDict``.
@@ -326,3 +380,252 @@ class LRU(LRI):
 
             self.hit_count += 1
             return link[VALUE]
+
+
+# Cached decorator
+# Key-making technique adapted from Python 3.4's functools
+class _HashedKey(list):
+    """The _HashedKey guarantees that hash() will be called no more than once
+    per cached function invocation.
+    """
+    __slots__ = 'hash_value'
+
+    def __init__(self, key):
+        super().__init__()
+        self[:] = key
+        self.hash_value = hash(tuple(key))
+
+    def __hash__(self):
+        return self.hash_value
+
+    def __repr__(self):
+        return '%s(%s)' % (self.__class__.__name__, list.__repr__(self))
+
+
+# noinspection PyRedundantParentheses
+def make_cache_key(args, kwargs, typed=False,
+                   kwarg_mark=_KWARG_MARK,
+                   fasttypes=frozenset([int, str, frozenset, type(None)])):
+    """Make a generic key from a function's positional and keyword
+    arguments, suitable for use in caches. Arguments within *args* and
+    *kwargs* must be `hashable`_. If *typed* is ``True``, ``3`` and
+    ``3.0`` will be treated as separate keys.
+
+    The key is constructed in a way that is flat as possible rather than
+    as a nested structure that would take more memory.
+
+    If there is only a single argument and its data type is known to cache
+    its hash value, then that argument is returned without a wrapper.  This
+    saves space and improves lookup speed.
+
+    >>> tuple(make_cache_key(('a', 'b'), {'c': ('d')}))
+    ('a', 'b', _KWARG_MARK, ('c', 'd'))
+
+    """
+
+    # key = [func_name] if func_name else []
+    # key.extend(args)
+    key = list(args)
+    sorted_items = {}.items()
+    if kwargs:
+        sorted_items = sorted(kwargs.items())
+        key.append(kwarg_mark)
+        key.extend(sorted_items)
+    if typed:
+        key.extend([type(v) for v in args])
+        if kwargs:
+            key.extend([type(v) for k, v in sorted_items])
+    elif len(key) == 1 and type(key[0]) in fasttypes:
+        return key[0]
+    return _HashedKey(key)
+
+
+# for backwards compatibility in case someone was importing it
+_make_cache_key = make_cache_key
+
+
+class CachedFunction(object):
+    """This type is used by :func:`cached`, below. Instances of this
+    class are used to wrap functions in caching logic.
+    """
+
+    def __init__(self, func, cache, scoped=True, typed=False, key=None):
+        self.func = func
+        if callable(cache):
+            self.get_cache = cache
+        elif not (callable(getattr(cache, '__getitem__', None))
+                  and callable(getattr(cache, '__setitem__', None))):
+            raise TypeError('expected cache to be a dict-like object,'
+                            ' or callable returning a dict-like object, not %r'
+                            % cache)
+        else:
+            def _get_cache():
+                return cache
+
+            self.get_cache = _get_cache
+        self.scoped = scoped
+        self.typed = typed
+        self.key_func = key or make_cache_key
+
+    def __call__(self, *args, **kwargs):
+        cache = self.get_cache()
+        key = self.key_func(args, kwargs, typed=self.typed)
+        try:
+            ret = cache[key]
+        except KeyError:
+            ret = cache[key] = self.func(*args, **kwargs)
+        return ret
+
+    def __repr__(self):
+        cn = self.__class__.__name__
+        if self.typed or not self.scoped:
+            return ("%s(func=%r, scoped=%r, typed=%r)"
+                    % (cn, self.func, self.scoped, self.typed))
+        return "%s(func=%r)" % (cn, self.func)
+
+
+class CachedMethod(object):
+    """Similar to :class:`CachedFunction`, this type is used by
+    :func:`cachedmethod` to wrap methods in caching logic.
+    """
+
+    def __init__(self, func, cache, scoped=True, typed=False, key=None):
+        self.func = func
+        self.__isabstractmethod__ = getattr(func, '__isabstractmethod__', False)
+        if isinstance(cache, (str, bytes)):
+            self.get_cache = attrgetter(cache)
+        elif callable(cache):
+            self.get_cache = cache
+        elif not (callable(getattr(cache, '__getitem__', None))
+                  and callable(getattr(cache, '__setitem__', None))):
+            raise TypeError('expected cache to be an attribute name,'
+                            ' dict-like object, or callable returning'
+                            ' a dict-like object, not %r' % cache)
+        else:
+            # noinspection PyUnusedLocal
+            def _get_cache(obj):
+                return cache
+
+            self.get_cache = _get_cache
+        self.scoped = scoped
+        self.typed = typed
+        self.key_func = key or make_cache_key
+        self.bound_to = None
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        cls = self.__class__
+        ret = cls(self.func, self.get_cache, typed=self.typed,
+                  scoped=self.scoped, key=self.key_func)
+        ret.bound_to = obj
+        return ret
+
+    def __call__(self, *args, **kwargs):
+        obj = args[0] if self.bound_to is None else self.bound_to
+        cache = self.get_cache(obj)
+        key_args = (self.bound_to, self.func) + args if self.scoped else args
+        key = self.key_func(key_args, kwargs, typed=self.typed)
+        try:
+            ret = cache[key]
+        except KeyError:
+            if self.bound_to is not None:
+                args = (self.bound_to,) + args
+            ret = cache[key] = self.func(*args, **kwargs)
+        return ret
+
+    # noinspection PyStringFormat
+    def __repr__(self):
+        cn = self.__class__.__name__
+        args = (cn, self.func, self.scoped, self.typed)
+        if self.bound_to is not None:
+            args += (self.bound_to,)
+            return '<%s func=%r scoped=%r typed=%r bound_to=%r>' % args
+        return "%s(func=%r, scoped=%r, typed=%r)" % args
+
+
+# noinspection PyUnresolvedReferences
+def cached(cache, scoped=True, typed=False, key=None):
+    """Cache any function with the cache object of your choosing. Note
+    that the function wrapped should take only `hashable`_ arguments.
+
+    Args:
+        cache (Mapping): Any :class:`dict`-like object suitable for
+            use as a cache. Instances of the :class:`LRU` and
+            :class:`LRI` are good choices, but a plain :class:`dict`
+            can work in some cases, as well. This argument can also be
+            a callable which accepts no arguments and returns a mapping.
+        scoped (bool): Whether the function itself is part of the
+            cache key.  ``True`` by default, different functions will
+            not read one another's cache entries, but can evict one
+            another's results. ``False`` can be useful for certain
+            shared cache use cases. More advanced behavior can be
+            produced through the *key* argument.
+        typed (bool): Whether to factor argument types into the cache
+            check. Default ``False``, setting to ``True`` causes the
+            cache keys for ``3`` and ``3.0`` to be considered unequal.
+        key:
+
+    >>> my_cache = LRU()
+    >>> @cached(my_cache)
+    ... def cached_lower(x):
+    ...     return x.lower()
+    ...
+    >>> cached_lower("CaChInG's FuN AgAiN!")
+    "caching's fun again!"
+    >>> len(my_cache)
+    1
+
+    """
+
+    # noinspection PyMissingOrEmptyDocstring
+    def cached_func_decorator(func):
+        return CachedFunction(func, cache, scoped=scoped, typed=typed, key=key)
+
+    return cached_func_decorator
+
+
+# noinspection PyUnresolvedReferences
+def cachedmethod(cache, scoped=True, typed=False, key=None):
+    """Similar to :func:`cached`, ``cachedmethod`` is used to cache
+    methods based on their arguments, using any :class:`dict`-like
+    *cache* object.
+
+    Args:
+        cache (str/Mapping/callable): Can be the name of an attribute
+            on the instance, any Mapping/:class:`dict`-like object, or
+            a callable which returns a Mapping.
+        scoped (bool): Whether the method itself and the object it is
+            bound to are part of the cache keys. ``True`` by default,
+            different methods will not read one another's cache
+            results. ``False`` can be useful for certain shared cache
+            use cases. More advanced behavior can be produced through
+            the *key* arguments.
+        typed (bool): Whether to factor argument types into the cache
+            check. Default ``False``, setting to ``True`` causes the
+            cache keys for ``3`` and ``3.0`` to be considered unequal.
+        key (callable): A callable with a signature that matches
+            :func:`make_cache_key` that returns a tuple of hashable
+            values to be used as the key in the cache.
+
+    >>> class Lowerer(object):
+    ...     def __init__(self):
+    ...         self.cache = LRI()
+    ...
+    ...     @cachedmethod('cache')
+    ...     def lower(self, text):
+    ...         return text.lower()
+    ...
+    >>> lowerer = Lowerer()
+    >>> lowerer.lower('WOW WHO COULD GUESS CACHING COULD BE SO NEAT')
+    'wow who could guess caching could be so neat'
+    >>> len(lowerer.cache)
+    1
+
+    """
+
+    # noinspection PyMissingOrEmptyDocstring
+    def cached_method_decorator(func):
+        return CachedMethod(func, cache, scoped=scoped, typed=typed, key=key)
+
+    return cached_method_decorator

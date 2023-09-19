@@ -11,7 +11,7 @@ from ._cachelru import *
 from ._cacheutils import *
 
 __all__ = (
-    "LRI", "LRU",
+    "LRI", "LRU", "cachedmethod", "cached", "make_sentinel", "_MISSING", "_KWARG_MARK",
 
     "Singleton", "Cached", "UserConfig", "LocalCache", "g", "Config",
 )
