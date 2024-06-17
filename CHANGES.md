@@ -1,5 +1,12 @@
 ## fesutils Changelog
 
+###[1.1.1] - 2024-06-17
+
+#### Changed 
+- 更改部分mypy提示的类型注解
+- 固化requirement文件和setup函数的依赖版本使得能够对3.6更好的支持
+
+
 ###[1.1.0] - 2023-09-19
 
 #### Added 

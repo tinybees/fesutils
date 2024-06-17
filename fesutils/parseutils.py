@@ -19,7 +19,7 @@ except ImportError as e:
 try:
     from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader  # type: ignore
+    from yaml import Loader
 
 __all__ = ("analysis_yaml",)
 
@@ -35,7 +35,7 @@ def analysis_yaml(full_conf_path: str):
     with open(full_conf_path, 'rt', encoding="utf8") as f:
         try:
             conf = yaml.load(f, Loader=Loader)
-        except yaml.YAMLError as e:
-            print("Yaml配置文件出错, {}".format(e))
+        except yaml.YAMLError as ex:
+            print("Yaml配置文件出错, {}".format(ex))
             sys.exit()
     return conf

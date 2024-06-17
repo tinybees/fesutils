@@ -9,7 +9,7 @@
 和容器相关的常用工具方法
 """
 import itertools
-from typing import List, Tuple, Union
+from typing import Any, Callable, List, Tuple, Union
 
 __all__ = ("expand_nested_list", "is_iterable", "chunked", "chunked_iter",)
 
@@ -101,7 +101,7 @@ def chunked_iter(src, size, **kw):
         raise ValueError('got unexpected keyword arguments: %r' % kw.keys())
     if not src:
         return
-    postprocess = lambda chk: chk
+    postprocess: Callable[[Any], Any] = lambda chk: chk
     if isinstance(src, (str, bytes)):
         postprocess = lambda chk, _sep=type(src)(): _sep.join(chk)
         if isinstance(src, bytes):
